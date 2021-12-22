@@ -25,26 +25,25 @@ from .KiaUvoApiImpl import KiaUvoApiImpl
 from .Token import Token
 
 
-CIPHERS = "DEFAULT@SECLEVEL=1"
+CIPHERS = (
+    'DEFAULT@SECLEVEL=1'
+)
 
 _LOGGER = logging.getLogger(__name__)
 
-
 class cipherAdapter(HTTPAdapter):
     """
-    A HTTPAdapter that re-enables poor ciphers required by Hyundai.
+    A TransportAdapter that re-enables 3DES support in Requests.
     """
-
     def init_poolmanager(self, *args, **kwargs):
         context = create_urllib3_context(ciphers=CIPHERS)
-        kwargs["ssl_context"] = context
-        return super().init_poolmanager(*args, **kwargs)
+        kwargs['ssl_context'] = context
+        return super(DESAdapter, self).init_poolmanager(*args, **kwargs)
 
     def proxy_manager_for(self, *args, **kwargs):
         context = create_urllib3_context(ciphers=CIPHERS)
-        kwargs["ssl_context"] = context
-        return super().proxy_manager_for(*args, **kwargs)
-
+        kwargs['ssl_context'] = context
+        return super(DESAdapter, self).proxy_manager_for(*args, **kwargs)
 
 class HyundaiBlueLinkAPIUSA(KiaUvoApiImpl):
 
@@ -101,7 +100,7 @@ class HyundaiBlueLinkAPIUSA(KiaUvoApiImpl):
             "clientSecret": "v558o935-6nne-423i-baa8",
         }
         self.sessions = requests.Session()
-        self.sessions.mount("https://" + self.BASE_URL, cipherAdapter())
+        self.sessions.mount('https://' + self.BASE_URL, cipherAdapter())
 
         _LOGGER.debug(f"{DOMAIN} - initial API headers: {self.API_HEADERS}")
 
@@ -110,9 +109,10 @@ class HyundaiBlueLinkAPIUSA(KiaUvoApiImpl):
         password = self.password
 
         ### Sign In with Email and Password and Get Authorization Code ###
-
+        
+        
         url = self.LOGIN_API + "oauth/token"
-
+        
         data = {"username": username, "password": password}
         headers = self.API_HEADERS
         response = self.sessions.post(url, json=data, headers=headers)
@@ -228,7 +228,11 @@ class HyundaiBlueLinkAPIUSA(KiaUvoApiImpl):
         vehicle_status["vehicleLocation"] = self.get_location(
             token, vehicle_status["odometer"]["value"]
         )
+        _LOGGER.debug(
+            f"{DOMAIN} - Out of location Call"
+        )
         HyundaiBlueLinkAPIUSA.old_vehicle_status = vehicle_status
+        
         return vehicle_status
 
     def get_location(self, token: Token, current_odometer):
@@ -287,7 +291,15 @@ class HyundaiBlueLinkAPIUSA(KiaUvoApiImpl):
                         return HyundaiBlueLinkAPIUSA.old_vehicle_status.get(
                             "vehicleLocation"
                         )
+                        _LOGGER.debug(
+                            f"{DOMAIN} - Returning Old Location"
+                        )
+
+                        
                     else:
+                        _LOGGER.debug(
+                            f"{DOMAIN} - Returning None"
+                        )
                         return None
 
             except Exception as e:

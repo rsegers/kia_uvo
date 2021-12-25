@@ -13,9 +13,27 @@ from .const import (
 )
 from .KiaUvoApiImpl import KiaUvoApiImpl
 from .Token import Token
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.ssl_ import create_urllib3_context
+
+CIPHERS = ('DEFAULT@SECLEVEL=2')
+
 
 _LOGGER = logging.getLogger(__name__)
 
+class DESAdapter(HTTPAdapter):
+    """
+    A TransportAdapter that re-enables 3DES support in Requests.
+    """
+    def init_poolmanager(self, *args, **kwargs):
+        context = create_urllib3_context(ciphers=CIPHERS)
+        kwargs['ssl_context'] = context
+        return super(DESAdapter, self).init_poolmanager(*args, **kwargs)
+
+    def proxy_manager_for(self, *args, **kwargs):
+        context = create_urllib3_context(ciphers=CIPHERS)
+        kwargs['ssl_context'] = context
+        return super(DESAdapter, self).proxy_manager_for(*args, **kwargs)
 
 class KiaUvoApiCA(KiaUvoApiImpl):
     def __init__(
@@ -35,6 +53,8 @@ class KiaUvoApiCA(KiaUvoApiImpl):
         self.last_action_xid = None
         self.last_action_completed = False
         self.last_action_pin_auth = None
+        self.temperature_range_ICE_C = [x * 0.5 for x in range(32, 64)]
+        self.temperature_range_EV_C = [x * 0.5 for x in range(28, 64)]
 
         if BRANDS[brand] == BRAND_KIA:
             self.BASE_URL: str = "kiaconnect.ca"
@@ -59,16 +79,19 @@ class KiaUvoApiCA(KiaUvoApiImpl):
             "sec-fetch-site": "same-origin",
         }
 
+
     def login(self) -> Token:
         username = self.username
         password = self.password
-
+        
         # Sign In with Email and Password and Get Authorization Code
-
+        
         url = self.API_URL + "lgn"
         data = {"loginId": username, "password": password}
         headers = self.API_HEADERS
-        response = requests.post(url, json=data, headers=headers)
+        sessions = requests.Session()
+        sessions.mount('self.API_URL', DESAdapter())
+        response = sessions.post(url, json=data, headers=headers)
         _LOGGER.debug(f"{DOMAIN} - Sign In Response {response.text}")
         response = response.json()
         response = response["result"]
@@ -162,6 +185,14 @@ class KiaUvoApiCA(KiaUvoApiImpl):
 
         self.old_vehicle_status = vehicle_status
         return vehicle_status
+    def get_vehicles(self, token: Token):
+        url = self.API_URL + "vhcllst"
+        headers = self.API_HEADERS
+        headers["accessToken"] = access_token
+        response = requests.post(url, headers=headers)
+        _LOGGER.debug(f"{DOMAIN} - Get Vehicles Response {response.text}")
+        response = response.json()
+        return response
 
     def get_location(self, token: Token):
         url = self.API_URL + "fndmcr"
@@ -242,7 +273,7 @@ class KiaUvoApiCA(KiaUvoApiImpl):
         headers["vehicleId"] = token.vehicle_id
         headers["pAuth"] = self.get_pin_token(token)
 
-        set_temp = self.get_temperature_range_by_region().index(set_temp)
+        set_temp = self.temperature_range_ICE_C.index(set_temp)
         set_temp = hex(set_temp).split("x")
         set_temp = set_temp[1] + "H"
         set_temp = set_temp.zfill(3).upper()
@@ -279,7 +310,7 @@ class KiaUvoApiCA(KiaUvoApiImpl):
         headers["vehicleId"] = token.vehicle_id
         headers["pAuth"] = self.get_pin_token(token)
 
-        set_temp = self.get_temperature_range_by_region().index(set_temp)
+        set_temp = self.temperature_range_EV_C.index(set_temp)
         set_temp = hex(set_temp).split("x")
         set_temp = set_temp[1] + "H"
         set_temp = set_temp.zfill(3).upper()

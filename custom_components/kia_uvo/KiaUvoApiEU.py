@@ -497,6 +497,15 @@ class KiaUvoApiEU(KiaUvoApiImpl):
                     )
                     break
 
+            # reset consumption to 0 on new month
+            if int(drivingInfo['drivingDate']) > 0 and int(drivingInfo['drivingDate']) < int(datetime.today().strftime("%Y%m")):
+                drivingInfo["totalPwrCsp"]     = 0
+                drivingInfo["motorPwrCsp"]     = 0
+                drivingInfo["climatePwrCsp"]   = 0
+                drivingInfo["eDPwrCsp"]        = 0
+                drivingInfo["regenPwr"]        = 0
+                drivingInfo["batteryMgPwrCsp"] = 0
+
         except:
             _LOGGER.warning("Unable to parse drivingInfo")
 

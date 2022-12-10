@@ -415,7 +415,9 @@ class KiaUvoApiCA(KiaUvoApiImpl):
         headers["accessToken"] = token.access_token
         headers["vehicleId"] = token.vehicle_id
         headers["pAuth"] = self.get_pin_token(token)
-
+        _LOGGER.debug(f"{DOMAIN} - Planned start_charge headers {headers}")
+        data = json.dumps({"pin": self.pin})
+        _LOGGER.debug(f"{DOMAIN} - Planned start_charge payload {data}")
         response = requests.post(
             url, headers=headers, data=json.dumps({"pin": self.pin})
         )
@@ -437,4 +439,4 @@ class KiaUvoApiCA(KiaUvoApiImpl):
         response_headers = response.headers
         response = response.json()
 
-        _LOGGER.debug(f"{DOMAIN} - Received start_charge response {response}")
+        _LOGGER.debug(f"{DOMAIN} - Received stop_charge response {response}")
